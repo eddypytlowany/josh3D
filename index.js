@@ -22,7 +22,7 @@ initThree( new ThreeGLTF(canvas, config), require('./monk.glb') ).then(async ({ 
     const RAPIER            = await import('@dimforge/rapier3d');
     const size              = three.sceneSize;
     const width             = size.x * 4;
-    const gravity           = { x: 0, y: -10, z: 0 };
+    const gravity           = { x: 0, y: -1, z: 0 };
     const world             = new RAPIER.World(gravity);
     const height            = innerHeight/innerWidth * width;
     const material          = new MeshBasicMaterial({
