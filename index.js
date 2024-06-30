@@ -39,10 +39,8 @@ initThree( new ThreeGLTF(canvas, config), require('./monk.glb') ).then(async ({ 
         const body  = new RAPIER.RigidBodyDesc(type);
         const size  = new Vector3;
         const pos   = new Vector3;
-        // const rot   = new Quaternion;
 
         mesh.getWorldPosition(pos);
-        // mesh.getWorldQuaternion(rot);
         getObjectBoundingBox(mesh).getSize(size);
 
         body.setTranslation(pos.x, pos.y, pos.z);
@@ -124,14 +122,10 @@ initThree( new ThreeGLTF(canvas, config), require('./monk.glb') ).then(async ({ 
 
     sync.read( () => void world.step(), true );
 
-    window.addEventListener('deviceorientation', ({ gamma, beta }) => {
-
-        Object.assign(gravity, {
-            x : Math.max(Math.min(beta, 90), -90)/90 * -30,
-            y : gamma/90 * -30
-        });
-
-   });
+    window.addEventListener( 'deviceorientation', ({ gamma, beta }) => void Object.assign(gravity, {
+        x : Math.max(Math.min(beta, 90), -90)/90 * 30,
+        y : gamma/90 * 30
+    }) );
 
     document.body.appendChild(canvas);
 
@@ -140,6 +134,8 @@ initThree( new ThreeGLTF(canvas, config), require('./monk.glb') ).then(async ({ 
     three.resetCamera();
     three.camera.translateZ(1.25);
     
-    enableDevControls();
+    enableDevControls?.();
+
+    canvas.addEventListener( 'click', () => void DeviceOrientationEvent?.requestPermission().then(console.log).catch(console.error) );
 
 });
