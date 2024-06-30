@@ -1,0 +1,17 @@
+{
+  "name": "phat-kitty-three-template",
+  "version": "1.2.0",
+  "author": "Monk Media (monk.com.au)",
+  "private": true,
+  "peerDependencies": {
+    "dat.gui": "0",
+    "framesync": "^6",
+    "three": "0"
+  },
+  "devDependencies": {
+    "copy-webpack-plugin": "^6",
+    "webpack": "^4",
+    "webpack-merge": "^5.2.0",
+    "worker-loader": "^3"
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "name": "phat-kitty-twig-template",
+  "version": "0.0.0",
+  "author": "Monk Media (monk.com.au)",
+  "private": true,
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "license": "ISC",
+  "description": "",
+  "devDependencies": {
+    "glob": "^10.3.15",
+    "html-webpack-plugin": "^4.5.2",
+    "twig": "^1.17.1",
+    "webpack": "^4.47.0",
+    "webpack-merge": "^5.2.0",
+    "yaml": "^2.4.2"
+  }
+}
