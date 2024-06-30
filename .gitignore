@@ -131,11 +131,12 @@ dist
 
 *.zip
 phat-kitty.json
-global/
-certs/
-lib/
+global
 
 package-lock.json
 *.lock
 
 .gitattributes
+
+certs/
+lib/
