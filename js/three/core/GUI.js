@@ -33,17 +33,17 @@ class GUI extends EventDispatcher {
 
         for(const prop in this.controls) {
 
-            const controller = (...args) => folder.add(this.controls, prop, ...args).onChange( this.update.bind(this, prop) );
+            const addDefaultController = (...args) => folder.add(this.controls, prop, ...args).onChange( this.update.bind(this, prop) );
 
-            this.addController(controller, prop, folder);
+            this.addController(addDefaultController, prop, folder);
 
         }
 
     }
 
-    addController(controller) {
+    addController(addDefaultController) {
 
-        controller();
+        addDefaultController();
 
     }
 

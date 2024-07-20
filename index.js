@@ -1,28 +1,41 @@
 
+import RapierGUI from './js/three/gui/RapierGUI';
 import ThreeGLTF from 'js/three/renderer/threeGLTF';
 import sync from 'framesync';
 import GUI from './js/three/core/GUI';
 import { getObjectBoundingBox } from './js/three/utils';
 import { initThree } from "js/three";
 import { css } from '@emotion/css';
-import { Mesh, PlaneGeometry, MeshBasicMaterial, Vector3, LineDashedMaterial, Line, BufferGeometry, Color } from "three";
+import { Mesh, PlaneGeometry, MeshBasicMaterial, Vector3, Raycaster, Vector2 } from "three";
 
+const raycaster = new Raycaster;
+const movement  = new Vector3;
+const pointer   = new Vector3;
 const canvas    = document.createElement('canvas');
 const config    = {
     bgColor : 0x152610
 };
+
+let canDragMesh = {};
 
 canvas.classList.add(css`
     width: 100vw;
     height: 100dvh;
 `);
 
+canvas.addEventListener('pointermove', e => {
+
+    pointer.set(e.offsetX / canvas.clientWidth * 2 - 1, -e.offsetY / canvas.clientHeight * 2 + 1);
+    movement.set(e.movementX/50, -e.movementY/50);
+
+});
+
 initThree( new ThreeGLTF(canvas, config), require('./monk.glb') ).then(async ({ gui, three, resize, enableDevControls }) => {
 
     const RAPIER            = await import('@dimforge/rapier3d');
     const size              = three.sceneSize;
     const width             = size.x * 4;
-    const gravity           = { x: 0, y: -1, z: 0 };
+    const gravity           = { x: 0, y: -30, z: 0 };
     const world             = new RAPIER.World(gravity);
     const height            = innerHeight/innerWidth * width;
     const material          = new MeshBasicMaterial({
@@ -44,6 +57,7 @@ initThree( new ThreeGLTF(canvas, config), require('./monk.glb') ).then(async ({ 
         getObjectBoundingBox(mesh).getSize(size);
 
         body.setTranslation(pos.x, pos.y, pos.z);
+        body.setCcdEnabled(true);
 
         return world.createCollider( RAPIER.ColliderDesc.cuboid(size.x/2, size.y/2, size.z/2), world.createRigidBody(body) );
 
@@ -64,6 +78,17 @@ initThree( new ThreeGLTF(canvas, config), require('./monk.glb') ).then(async ({ 
 
     }
 
+    function applyMovement(body) {
+
+        const vector = new Vector3();
+
+        vector.addVectors(body.translation(), movement);
+
+        body.setTranslation(vector);
+        body.sleep();
+
+    }
+
     gui && materialGUI.addTo(gui);
     
     createBound('ZP', width, height, [0, 0, -1], [0, 0, 0]);
@@ -80,47 +105,46 @@ initThree( new ThreeGLTF(canvas, config), require('./monk.glb') ).then(async ({ 
 
         window.addEventListener( 'deviceorientation', () => collider.parent().isSleeping() && collider.parent().wakeUp() );
 
+        canvas.addEventListener('pointerdown', () => {
+
+            if(raycaster.intersectObject(letter).length) {
+
+                canDragMesh[name] = true;
+
+            }
+
+        });
+
+        canvas.addEventListener('pointerup', () => {
+
+            canDragMesh[name] = false;
+
+            collider.parent().wakeUp();
+
+        });
+
         sync.update( () => {
 
             letter.position.copy( collider.translation() );
             letter.quaternion.copy( collider.rotation() );
 
+            if(canDragMesh[name]) {
+
+                applyMovement( collider.parent() );
+
+            }
+
         }, true );
 
     });
 
-    sync.update( () => {
+    sync.read( () => {
 
-        const { vertices, colors } = world.debugRender();
+        world.step();
 
-        for(let i = 0; i < vertices.length/6; i++) {
+        raycaster.setFromCamera(pointer, three.camera);
 
-            const material  = new LineDashedMaterial;
-            const geometry  = new BufferGeometry;
-            const points    = [];
-            const point     = () => vertices[vertexOffset++];
-            const color     = () => colors[colorOffset++];
-            const line      = new Line(geometry, material);
-
-            let vertexOffset    = i * 6;
-            let colorOffset     = i * 8;
-
-            material.color = new Color( color(), color(), color() );
-
-            line.onAfterRender = () => void line.removeFromParent();
-
-            points.push( new Vector3( point(), point(), point() ) );
-            points.push( new Vector3( point(), point(), point() ) );
-
-            geometry.setFromPoints(points);
-
-            three.scene.add(line);
-
-        }
-
-    } );
-
-    sync.read( () => void world.step(), true );
+    }, true );
 
     window.addEventListener( 'deviceorientation', ({ gamma, beta }) => void Object.assign(gravity, {
         x : Math.max(Math.min(beta, 90), -90)/90 * 30,
@@ -132,10 +156,12 @@ initThree( new ThreeGLTF(canvas, config), require('./monk.glb') ).then(async ({ 
     resize();
 
     three.resetCamera();
-    three.camera.translateZ(1.25);
+    three.camera.translateZ(.5);
     
     enableDevControls?.();
 
-    canvas.addEventListener( 'click', () => void DeviceOrientationEvent?.requestPermission().then(console.log).catch(console.error) );
+    canvas.addEventListener( 'click', () => void DeviceOrientationEvent.requestPermission?.().then(console.log).catch(console.error) );
+
+    gui && new RapierGUI(three, world).addTo(gui);
 
 });
