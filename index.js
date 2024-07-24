@@ -6,11 +6,10 @@ import GUI from './js/three/core/GUI';
 import { getObjectBoundingBox } from './js/three/utils';
 import { initThree } from "js/three";
 import { css } from '@emotion/css';
-import { Mesh, PlaneGeometry, MeshBasicMaterial, Vector3, Raycaster, Vector2 } from "three";
+import { Mesh, PlaneGeometry, MeshBasicMaterial, Vector3, Raycaster } from "three";
 
 const raycaster = new Raycaster;
 const movement  = new Vector3;
-const pointer   = new Vector3;
 const canvas    = document.createElement('canvas');
 const config    = {
     bgColor : 0x152610
@@ -22,13 +21,6 @@ canvas.classList.add(css`
     width: 100vw;
     height: 100dvh;
 `);
-
-canvas.addEventListener('pointermove', e => {
-
-    pointer.set(e.offsetX / canvas.clientWidth * 2 - 1, -e.offsetY / canvas.clientHeight * 2 + 1);
-    movement.set(e.movementX/50, -e.movementY/50);
-
-});
 
 initThree( new ThreeGLTF(canvas, config), require('./monk.glb') ).then(async ({ gui, three, resize, enableDevControls }) => {
 
@@ -105,13 +97,23 @@ initThree( new ThreeGLTF(canvas, config), require('./monk.glb') ).then(async ({ 
 
         window.addEventListener( 'deviceorientation', () => collider.parent().isSleeping() && collider.parent().wakeUp() );
 
-        canvas.addEventListener('pointerdown', () => {
+        canvas.addEventListener('pointerdown', e => {
 
-            if(raycaster.intersectObject(letter).length) {
+            const pointer = new Vector3;
 
-                canDragMesh[name] = true;
+            pointer.set(e.offsetX / canvas.clientWidth * 2 - 1, -e.offsetY / canvas.clientHeight * 2 + 1);
 
-            }
+            sync.postRender( () => {
+
+                raycaster.setFromCamera(pointer, three.camera);
+    
+                if(raycaster.intersectObject(letter).shift()?.object.name === name) {
+    
+                    canDragMesh[name] = true;
+    
+                }
+
+            } );
 
         });
 
@@ -128,28 +130,20 @@ initThree( new ThreeGLTF(canvas, config), require('./monk.glb') ).then(async ({ 
             letter.position.copy( collider.translation() );
             letter.quaternion.copy( collider.rotation() );
 
-            if(canDragMesh[name]) {
-
-                applyMovement( collider.parent() );
-
-            }
+            canDragMesh[name] && applyMovement( collider.parent() );
 
         }, true );
 
     });
 
-    sync.read( () => {
-
-        world.step();
-
-        raycaster.setFromCamera(pointer, three.camera);
-
-    }, true );
+    sync.read( () => void world.step(), true );
 
     window.addEventListener( 'deviceorientation', ({ gamma, beta }) => void Object.assign(gravity, {
         x : Math.max(Math.min(beta, 90), -90)/90 * 30,
         y : gamma/90 * 30
     }) );
+
+    canvas.addEventListener( 'pointermove', e => movement.set(width * e.movementX/innerWidth, height * -e.movementY/innerHeight) );
 
     document.body.appendChild(canvas);
 
