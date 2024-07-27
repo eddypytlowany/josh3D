@@ -70,7 +70,7 @@ initThree( new ThreeGLTF(canvas, config), require('./monk.glb') ).then(async ({ 
 
     }
 
-    function applyMovement(body) {
+    function moveBody(body) {
 
         const vector = new Vector3();
 
@@ -78,6 +78,16 @@ initThree( new ThreeGLTF(canvas, config), require('./monk.glb') ).then(async ({ 
 
         body.setTranslation(vector);
         body.sleep();
+
+    }
+
+    function releaseBody(body, name) {
+
+        canDragMesh[name] = false;
+    
+        movement.multiplyScalar(1000);
+
+        movement.length() ? body.applyImpulse(movement, true) : body.wakeUp();
 
     }
 
@@ -97,6 +107,7 @@ initThree( new ThreeGLTF(canvas, config), require('./monk.glb') ).then(async ({ 
 
         window.addEventListener( 'deviceorientation', () => collider.parent().isSleeping() && collider.parent().wakeUp() );
 
+        canvas.addEventListener( 'pointerup', () => canDragMesh[name] && releaseBody(collider.parent(), name) );
         canvas.addEventListener('pointerdown', e => {
 
             const pointer = new Vector3;
@@ -107,7 +118,7 @@ initThree( new ThreeGLTF(canvas, config), require('./monk.glb') ).then(async ({ 
 
                 raycaster.setFromCamera(pointer, three.camera);
     
-                if(raycaster.intersectObject(letter).shift()?.object.name === name) {
+                if(raycaster.intersectObject(letter).length) {
     
                     canDragMesh[name] = true;
     
@@ -117,20 +128,12 @@ initThree( new ThreeGLTF(canvas, config), require('./monk.glb') ).then(async ({ 
 
         });
 
-        canvas.addEventListener('pointerup', () => {
-
-            canDragMesh[name] = false;
-
-            collider.parent().wakeUp();
-
-        });
-
         sync.update( () => {
 
             letter.position.copy( collider.translation() );
             letter.quaternion.copy( collider.rotation() );
 
-            canDragMesh[name] && applyMovement( collider.parent() );
+            canDragMesh[name] && moveBody( collider.parent() );
 
         }, true );
 
