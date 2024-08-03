@@ -1165,6 +1165,8 @@ ThreeInspector.start = function (three) {
   autoRefresh();
 
   window.ThreeInspector = ThreeInspector;
+
+  ThreeInspectorWidget.toggle();
   
 };
 

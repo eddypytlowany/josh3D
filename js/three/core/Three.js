@@ -60,9 +60,8 @@ export class Three extends EventDispatcher {
     get defaultConfig() {
 
         return {
-            scale               : 1,
-            bgColor             : 0x00FF00,
-            resetCameraOffset   : 1
+            scale   : 1,
+            bgColor : 0x00FF00,
         }
 
     }
@@ -135,14 +134,14 @@ export class Three extends EventDispatcher {
 
     }
 
-    resetCamera() {
+    resetCamera(scale = 1) {
         
         this.camera ??= new PerspectiveCamera();
 
         this.updateCamera();
 
         // REF: Math.ceil( bounds.y/2 * Math.max(this.camera.getFilmHeight()/this.camera.getFilmWidth(), 1) )/Math.tan( Math.round(this.camera.fov/2) * (Math.PI/180) )
-        this.camera.position.setZ(this.scenePosition.z + this.sceneSize.z/2 + calcCameraOffset(this.camera, this.sceneSize.x, this.sceneSize.y) * this.config.resetCameraOffset);
+        this.camera.position.setZ(this.scenePosition.z + this.sceneSize.z/2 + calcCameraOffset(this.camera, this.sceneSize.x, this.sceneSize.y) * scale);
         this.camera.position.setY(this.scenePosition.y);
         this.camera.position.setX(this.scenePosition.x);
         this.camera.lookAt(this.scenePosition);

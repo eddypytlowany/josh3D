@@ -7,11 +7,17 @@ class GUI extends EventDispatcher {
 
     controls = {};
 
-    constructor(three, object, controls = {}) {
+    constructor(three, object, controls) {
 
         super();
 
         this.object = object;
+
+        if( Array.isArray(controls) ) {
+
+            controls = Object.fromEntries( controls.map(p => [ p, object[p] ]) );
+
+        }
 
         Object.assign(this.controls, controls);
 

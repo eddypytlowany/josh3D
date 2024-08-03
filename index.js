@@ -1,3 +1,6 @@
+/*
+TODO Adapt bounds and gravity direction based on device's starting orientation.
+*/
 
 import RapierGUI from './js/three/gui/RapierGUI';
 import ThreeGLTF from 'js/three/renderer/threeGLTF';
@@ -6,7 +9,7 @@ import GUI from './js/three/core/GUI';
 import { getObjectBoundingBox } from './js/three/utils';
 import { initThree } from "js/three";
 import { css } from '@emotion/css';
-import { Mesh, PlaneGeometry, MeshBasicMaterial, Vector3, Raycaster } from "three";
+import { Mesh, PlaneGeometry, MeshBasicMaterial, Vector3, Raycaster, AmbientLight } from "three";
 
 const raycaster = new Raycaster;
 const movement  = new Vector3;
@@ -20,9 +23,14 @@ let canDragMesh = {};
 canvas.classList.add(css`
     width: 100vw;
     height: 100dvh;
+    visibility: hidden;
 `);
 
-initThree( new ThreeGLTF(canvas, config), require('./monk.glb') ).then(async ({ gui, three, resize, enableDevControls }) => {
+document.body.appendChild(canvas);
+
+module?.hot.accept('js/three');
+
+initThree( new ThreeGLTF(canvas, config), require('./monk.glb') ).then(async ({ gui, three, enableDevControls }) => {
 
     const RAPIER            = await import('@dimforge/rapier3d');
     const size              = three.sceneSize;
@@ -32,12 +40,14 @@ initThree( new ThreeGLTF(canvas, config), require('./monk.glb') ).then(async ({ 
     const height            = innerHeight/innerWidth * width;
     const material          = new MeshBasicMaterial({
         wireframe   : true,
-        visible     : false,
+        visible     : THREE_DEBUG,
         name        : 'BoundsWireframe'
     });
-    const materialGUI       = new GUI(three, material, {
-        visible : material.visible
-    });
+    const materialGUI       = new GUI(three, material, ['visible']);
+    const movementMultiply  = {
+        name    : 'MovementMultiplier',
+        value   : 800
+    };
 
     function createCollider(mesh, type = RAPIER.RigidBodyType.Dynamic) {
 
@@ -85,7 +95,7 @@ initThree( new ThreeGLTF(canvas, config), require('./monk.glb') ).then(async ({ 
 
         canDragMesh[name] = false;
     
-        movement.multiplyScalar(1000);
+        movement.multiplyScalar(movementMultiply.value);
 
         movement.length() ? body.applyImpulse(movement, true) : body.wakeUp();
 
@@ -108,7 +118,7 @@ initThree( new ThreeGLTF(canvas, config), require('./monk.glb') ).then(async ({ 
         window.addEventListener( 'deviceorientation', () => collider.parent().isSleeping() && collider.parent().wakeUp() );
 
         canvas.addEventListener( 'pointerup', () => canDragMesh[name] && releaseBody(collider.parent(), name) );
-        canvas.addEventListener('pointerdown', e => {
+        canvas.addEventListener( 'pointerdown', e => {
 
             const pointer = new Vector3;
 
@@ -126,7 +136,7 @@ initThree( new ThreeGLTF(canvas, config), require('./monk.glb') ).then(async ({ 
 
             } );
 
-        });
+        } );
 
         sync.update( () => {
 
@@ -147,18 +157,20 @@ initThree( new ThreeGLTF(canvas, config), require('./monk.glb') ).then(async ({ 
     }) );
 
     canvas.addEventListener( 'pointermove', e => movement.set(width * e.movementX/innerWidth, height * -e.movementY/innerHeight) );
-
-    document.body.appendChild(canvas);
-
-    resize();
-
+    
     three.resetCamera();
-    three.camera.translateZ(.5);
     
     enableDevControls?.();
 
     canvas.addEventListener( 'click', () => void DeviceOrientationEvent.requestPermission?.().then(console.log).catch(console.error) );
+    canvas.classList.add('visible');
 
-    gui && new RapierGUI(three, world).addTo(gui);
+    if(gui) {
+
+        new RapierGUI(three, world).addTo(gui);
+
+        new GUI(three, movementMultiply, ['value']).addTo(gui);
+
+    }
 
 });

@@ -1,5 +1,5 @@
 
-import media from 'phat-kitty-js/media-query';
+import { addPassiveEventListener } from 'phat-kitty-js/functions';
 import sync, { cancelSync } from 'framesync';
 
 export function initThree(three, src) {
@@ -18,19 +18,19 @@ export function initThree(three, src) {
     
     }
 
-    // three.setQuality(.5);
-
     return three.load(src).then(obj => {
 
-        media.on('0:three', resize);
+        const cancelResize = addPassiveEventListener(window, 'resize', resize);
 
         sync.render(render, true);
+
+        resize();
 
         three.resetCamera();
         three.compose();
 
         return Object.assign({ three, obj, resize }, {
-            cancel : () => void cancelSync.render(render)
+            cancel : () => ( cancelSync.render(render), cancelResize() )
         });
         
     });
