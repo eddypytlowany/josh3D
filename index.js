@@ -28,7 +28,7 @@ canvas.classList.add(css`
 
 document.body.appendChild(canvas);
 
-module?.hot.accept('js/three');
+module.hot?.accept('js/three');
 
 initThree( new ThreeGLTF(canvas, config), require('./monk.glb') ).then(async ({ gui, three, enableDevControls }) => {
 

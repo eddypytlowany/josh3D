@@ -1,6 +1,6 @@
 
 // const CopyPlugin        = require('copy-webpack-plugin');
-const { DefinePlugin, IgnorePlugin }  = require('webpack');
+const { DefinePlugin }  = require('webpack');
 const { resolve }       = require('path');
 const { merge }         = require('webpack-merge');
 
