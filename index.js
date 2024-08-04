@@ -22,7 +22,7 @@ let canDragMesh = {};
 
 canvas.classList.add(css`
     width: 100vw;
-    height: 100dvh;
+    height: 100svh;
     visibility: hidden;
 `);
 
@@ -33,7 +33,7 @@ initThree( new ThreeGLTF(canvas, config), require('./monk.glb') ).then(async ({ 
     const RAPIER            = await import('@dimforge/rapier3d');
     const size              = three.sceneSize;
     const width             = (size.x * 4) * Math.min(innerWidth/innerHeight, 1);
-    const gravity           = { x: 0, y: -30, z: 0 };
+    const gravity           = { x: 0, y: 0, z: 0 };
     const world             = new RAPIER.World(gravity);
     const height            = innerHeight/innerWidth * width;
     const material          = new MeshBasicMaterial({
@@ -45,6 +45,10 @@ initThree( new ThreeGLTF(canvas, config), require('./monk.glb') ).then(async ({ 
     const impulseMultiplier = {
         name    : 'ImpulseMultiplier',
         value   : 800
+    };
+    const gravityForce      = {
+        name    : 'GravityForce',
+        value   : 30
     };
 
     function createCollider(mesh, type = RAPIER.RigidBodyType.Dynamic) {
@@ -154,10 +158,14 @@ initThree( new ThreeGLTF(canvas, config), require('./monk.glb') ).then(async ({ 
 
     sync.read( () => void world.step(), true );
 
-    window.addEventListener( 'deviceorientation', ({ gamma, beta }) => void Object.assign(gravity, {
-        x : Math.max(Math.min(beta, 90), -90)/90 * 30,
-        y : gamma/90 * 30
-    }) );
+    window.addEventListener( 'deviceorientation', ({ gamma, beta }) => {
+
+        Object.assign(gravity, {
+            y : Math.max(Math.min(beta, 90), -90)/-90 * gravityForce.value,
+            x : gamma/90 * gravityForce.value
+        })
+
+    } );
 
     canvas.addEventListener( 'pointermove', e => movement.set(width * e.movementX/innerWidth, height * -e.movementY/innerHeight) );
 
@@ -175,6 +183,7 @@ initThree( new ThreeGLTF(canvas, config), require('./monk.glb') ).then(async ({ 
         new RapierGUI(three, world).addTo(gui);
 
         new GUI(three, impulseMultiplier, ['value']).addTo(gui);
+        new GUI(three, gravityForce, ['value']).addTo(gui);
 
     }
 
