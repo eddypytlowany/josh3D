@@ -70,3 +70,5 @@ export function initThree(three, src) {
 }
 
 document.body.appendChild(stats.dom);
+
+gui.close();

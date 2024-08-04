@@ -28,13 +28,11 @@ canvas.classList.add(css`
 
 document.body.appendChild(canvas);
 
-module.hot?.accept('js/three');
-
-initThree( new ThreeGLTF(canvas, config), require('./monk.glb') ).then(async ({ gui, three, enableDevControls }) => {
+initThree( new ThreeGLTF(canvas, config), require('./monk.glb') ).then(async ({ gui, three, cancel, enableDevControls }) => {
 
     const RAPIER            = await import('@dimforge/rapier3d');
     const size              = three.sceneSize;
-    const width             = size.x * 4;
+    const width             = (size.x * 4) * Math.min(innerWidth/innerHeight, 1);
     const gravity           = { x: 0, y: -30, z: 0 };
     const world             = new RAPIER.World(gravity);
     const height            = innerHeight/innerWidth * width;
@@ -44,8 +42,8 @@ initThree( new ThreeGLTF(canvas, config), require('./monk.glb') ).then(async ({ 
         name        : 'BoundsWireframe'
     });
     const materialGUI       = new GUI(three, material, ['visible']);
-    const movementMultiply  = {
-        name    : 'MovementMultiplier',
+    const impulseMultiplier = {
+        name    : 'ImpulseMultiplier',
         value   : 800
     };
 
@@ -93,11 +91,16 @@ initThree( new ThreeGLTF(canvas, config), require('./monk.glb') ).then(async ({ 
 
     function releaseBody(body, name) {
 
-        canDragMesh[name] = false;
-    
-        movement.multiplyScalar(movementMultiply.value);
+        const impulse = new Vector3();
 
-        movement.length() ? body.applyImpulse(movement, true) : body.wakeUp();
+        canDragMesh[name] = false;
+
+        impulse.copy(movement);
+        impulse.multiplyScalar(impulseMultiplier.value);
+    
+        impulse.length() ? body.applyImpulse(impulse, true) : body.wakeUp();
+        
+        movement.set(0, 0, 0);
 
     }
 
@@ -157,6 +160,8 @@ initThree( new ThreeGLTF(canvas, config), require('./monk.glb') ).then(async ({ 
     }) );
 
     canvas.addEventListener( 'pointermove', e => movement.set(width * e.movementX/innerWidth, height * -e.movementY/innerHeight) );
+
+    three.addLight(new AmbientLight);
     
     three.resetCamera();
     
@@ -169,8 +174,14 @@ initThree( new ThreeGLTF(canvas, config), require('./monk.glb') ).then(async ({ 
 
         new RapierGUI(three, world).addTo(gui);
 
-        new GUI(three, movementMultiply, ['value']).addTo(gui);
+        new GUI(three, impulseMultiplier, ['value']).addTo(gui);
 
     }
+
+    module.hot?.accept('js/three', () => {
+
+        cancel();
+
+    });
 
 });
