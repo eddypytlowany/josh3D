@@ -1,7 +1,12 @@
 /*
-TODO Adapt bounds and gravity direction based on device's starting orientation.
+TODO Detect when device is shaken and trigger a callback https://developer.mozilla.org/en-US/docs/Web/API/Sensor_APIs#interfaces
+TODO Apply random impulses to letters on shake event
+TODO Toggle material colours on letters on shake event
+TODO Determin direction of gravity based on orientation of viewport
+TODO What are normals in 3D?
 */
 
+import media from 'phat-kitty-js/media-query';
 import RapierGUI from './js/three/gui/RapierGUI';
 import ThreeGLTF from 'js/three/renderer/threeGLTF';
 import sync from 'framesync';
@@ -9,39 +14,37 @@ import GUI from './js/three/core/GUI';
 import { getObjectBoundingBox } from './js/three/utils';
 import { initThree } from "js/three";
 import { css } from '@emotion/css';
-import { Mesh, PlaneGeometry, MeshBasicMaterial, Vector3, Raycaster, AmbientLight } from "three";
+import { Mesh, PlaneGeometry, MeshBasicMaterial, Vector3, Raycaster, AmbientLight, Group } from "three";
 
-const raycaster = new Raycaster;
-const movement  = new Vector3;
-const canvas    = document.createElement('canvas');
-const config    = {
+const canDragMesh   = {};
+const raycaster     = new Raycaster;
+const movement      = new Vector3;
+const canvas        = document.createElement('canvas');
+const config        = {
     bgColor : 0x152610
 };
-
-let canDragMesh = {};
 
 canvas.classList.add(css`
     width: 100vw;
     height: 100svh;
     visibility: hidden;
+    touch-action: none;
 `);
 
 document.body.appendChild(canvas);
 
 initThree( new ThreeGLTF(canvas, config), require('./monk.glb') ).then(async ({ gui, three, cancel, enableDevControls }) => {
 
+    const letters           = new Group;
     const RAPIER            = await import('@dimforge/rapier3d');
     const size              = three.sceneSize;
-    const width             = (size.x * 4) * Math.min(innerWidth/innerHeight, 1);
     const gravity           = { x: 0, y: 0, z: 0 };
     const world             = new RAPIER.World(gravity);
-    const height            = innerHeight/innerWidth * width;
     const material          = new MeshBasicMaterial({
         wireframe   : true,
         visible     : THREE_DEBUG,
         name        : 'BoundsWireframe'
     });
-    const materialGUI       = new GUI(three, material, ['visible']);
     const impulseMultiplier = {
         name    : 'ImpulseMultiplier',
         value   : 800
@@ -51,34 +54,55 @@ initThree( new ThreeGLTF(canvas, config), require('./monk.glb') ).then(async ({ 
         value   : 30
     };
 
-    function createCollider(mesh, type = RAPIER.RigidBodyType.Dynamic) {
+    let width   = 0;
+    let height  = 0;
 
-        const body  = new RAPIER.RigidBodyDesc(type);
-        const size  = new Vector3;
-        const pos   = new Vector3;
+    letters.name = 'Letters';
 
-        mesh.getWorldPosition(pos);
+    function createCollider(mesh, rigidBody = undefined) {
+
+        const size = new Vector3;
+
+        mesh.userData.collider ??= world.createCollider(RAPIER.ColliderDesc.cuboid(), rigidBody);
+  
         getObjectBoundingBox(mesh).getSize(size);
 
-        body.setTranslation(pos.x, pos.y, pos.z);
-        body.setCcdEnabled(true);
+        size.multiplyScalar(.5);
 
-        return world.createCollider( RAPIER.ColliderDesc.cuboid(size.x/2, size.y/2, size.z/2), world.createRigidBody(body) );
+        mesh.userData.collider.setHalfExtents(size);
+
+        return mesh.userData.collider;
+
+    }
+
+    function createRigidBody(mesh, type = RAPIER.RigidBodyType.Dynamic) {
+
+        const pos = new Vector3;
+
+        mesh.userData.rigidBody ??= world.createRigidBody( new RAPIER.RigidBodyDesc(type) );
+
+        mesh.getWorldPosition(pos);
+
+        mesh.userData.rigidBody.setTranslation(pos);
+
+        return mesh.userData.rigidBody;
 
     }
 
     function createBound(ref, x, y, coords, euler) {
 
-        const bound = new Mesh(new PlaneGeometry(x, y), material);
+        const name  = 'Bnd_' + ref;
+        const bound = three.scene.getObjectByName(name) || new Mesh(new PlaneGeometry(1, 1), material);
 
-        bound.name = 'Bnd_' + ref;
+        bound.name = name;
 
+        bound.scale.set(x, y, 1);
         bound.position.fromArray(coords);
         bound.rotation.fromArray(euler);
 
-        three.addProp(bound);
+        three.scene.add(bound);
 
-        createCollider(bound, RAPIER.RigidBodyType.Fixed);
+        createCollider( bound, createRigidBody(bound, RAPIER.RigidBodyType.Fixed) );
 
     }
 
@@ -107,90 +131,113 @@ initThree( new ThreeGLTF(canvas, config), require('./monk.glb') ).then(async ({ 
         movement.set(0, 0, 0);
 
     }
-
-    gui && materialGUI.addTo(gui);
     
-    createBound('ZP', width, height, [0, 0, -1], [0, 0, 0]);
-    createBound('ZN', width, height, [0, 0, size.z], [0, Math.PI, 0]);
-    createBound('YP', width, size.z + 1, [0, height/-2, size.z/2 - .5], [Math.PI/-2, 0, 0]);
-    createBound('YN', width, size.z + 1, [0, height/2, size.z/2 - .5], [Math.PI/2, 0, 0]);
-    createBound('XP', size.z + 1, height, [width/-2, 0, .75], [0, Math.PI/2, 0]);
-    createBound('XN', size.z + 1, height, [width/2, 0, .75], [0, Math.PI/-2, 0]);
+    media.on('0', () => {
+
+        width   = (size.x * 4) * Math.min(innerWidth/innerHeight, 1);
+        height  = innerHeight/innerWidth * width;
+
+        createBound('ZP', width, height, [0, 0, -1], [0, 0, 0]);
+        createBound('ZN', width, height, [0, 0, size.z], [0, Math.PI, 0]);
+        createBound('YP', width, size.z + 1, [0, height/-2, size.z/2 - .5], [Math.PI/-2, 0, 0]);
+        createBound('YN', width, size.z + 1, [0, height/2, size.z/2 - .5], [Math.PI/2, 0, 0]);
+        createBound('XP', size.z + 1, height, [width/-2, 0, .75], [0, Math.PI/2, 0]);
+        createBound('XN', size.z + 1, height, [width/2, 0, .75], [0, Math.PI/-2, 0]);
+
+    });
 
     ['M', 'O', 'N', 'K'].forEach(name => {
 
         const letter    = three.scene.getObjectByName(name);
-        const collider  = createCollider(letter);
+        const body      = createRigidBody(letter);
+        const reset     = letter.position.clone();
 
-        window.addEventListener( 'deviceorientation', () => collider.parent().isSleeping() && collider.parent().wakeUp() );
+        body.enableCcd(true);
 
-        canvas.addEventListener( 'pointerup', () => canDragMesh[name] && releaseBody(collider.parent(), name) );
-        canvas.addEventListener( 'pointerdown', e => {
+        createCollider(letter, body);
 
-            const pointer = new Vector3;
+        window.addEventListener( 'deviceorientation', () => body.isSleeping() && body.wakeUp() );
+        canvas.addEventListener( 'pointerup', () => canDragMesh[name] && releaseBody(body, name) );
 
-            pointer.set(e.offsetX / canvas.clientWidth * 2 - 1, -e.offsetY / canvas.clientHeight * 2 + 1);
+        letters.add(letter);
 
-            sync.postRender( () => {
+        media.on('0', () => {
 
-                raycaster.setFromCamera(pointer, three.camera);
-    
-                if(raycaster.intersectObject(letter).length) {
-    
-                    canDragMesh[name] = true;
-    
-                }
+            body.setTranslation(reset);
 
-            } );
-
-        } );
+        });
 
         sync.update( () => {
 
-            letter.position.copy( collider.translation() );
-            letter.quaternion.copy( collider.rotation() );
+            letter.position.copy( body.translation() );
+            letter.quaternion.copy( body.rotation() );
 
-            canDragMesh[name] && moveBody( collider.parent() );
+            canDragMesh[name] && moveBody(body);
 
         }, true );
 
     });
 
+    three.scene.add(letters);
+    three.addLight(new AmbientLight);
+
     sync.read( () => void world.step(), true );
+
+    media.on( '0', () => {
+
+        three.scene.remove(letters);
+
+        three.resetCamera();
+
+        three.scene.add(letters);
+
+    } )
+
+    canvas.classList.add('visible');
+
+    canvas.addEventListener( 'click', () => void DeviceOrientationEvent.requestPermission?.().then(console.log).catch(console.error) );
+    canvas.addEventListener( 'pointermove', e => void movement.set(width * e.movementX/canvas.clientWidth, height * -e.movementY/canvas.clientHeight) );        
+    canvas.addEventListener( 'pointerdown', e => {
+
+        const pointer = new Vector3;
+
+        canvas.setPointerCapture(e.pointerId);
+        pointer.set(e.offsetX / canvas.clientWidth * 2 - 1, -e.offsetY / canvas.clientHeight * 2 + 1);
+
+        sync.postRender( () => {
+
+            raycaster.setFromCamera(pointer, three.camera);
+            raycaster.intersectObjects(letters.children).forEach(({ object }) => {
+
+                canDragMesh[object.name] = true;
+
+            });
+
+        } );
+
+    } );
 
     window.addEventListener( 'deviceorientation', ({ gamma, beta }) => {
 
         Object.assign(gravity, {
             y : Math.max(Math.min(beta, 90), -90)/-90 * gravityForce.value,
             x : gamma/90 * gravityForce.value
-        })
+        });
 
     } );
 
-    canvas.addEventListener( 'pointermove', e => movement.set(width * e.movementX/innerWidth, height * -e.movementY/innerHeight) );
-
-    three.addLight(new AmbientLight);
-    
-    three.resetCamera();
-    
-    enableDevControls?.();
-
-    canvas.addEventListener( 'click', () => void DeviceOrientationEvent.requestPermission?.().then(console.log).catch(console.error) );
-    canvas.classList.add('visible');
-
-    if(gui) {
+    if(THREE_DEBUG) {
 
         new RapierGUI(three, world).addTo(gui);
 
+        new GUI(three, material, ['visible']).addTo(gui);
         new GUI(three, impulseMultiplier, ['value']).addTo(gui);
         new GUI(three, gravityForce, ['value']).addTo(gui);
 
+        enableDevControls?.();
+
+        module.hot.accept( 'js/three', () => void cancel() );
+
     }
-
-    module.hot?.accept('js/three', () => {
-
-        cancel();
-
-    });
 
 });

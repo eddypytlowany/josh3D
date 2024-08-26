@@ -15,7 +15,7 @@ const { merge }         = require('webpack-merge');
  */
 module.exports = (local, mode, project) => {
 
-    const THREE_DEBUG   = mode === 'd';
+    const THREE_DEBUG = mode === 'd';
     // const draco_path    = resolve(project.src, 'lib/three/examples/js/libs');
 
     local = merge(local, {
