@@ -7,7 +7,7 @@ class GUI extends EventDispatcher {
 
     controls = {};
 
-    constructor(three, object, controls) {
+    constructor(three, object, controls = ['value']) {
 
         super();
 

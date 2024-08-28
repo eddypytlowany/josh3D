@@ -16,13 +16,39 @@ import { initThree } from "js/three";
 import { css } from '@emotion/css';
 import { Mesh, PlaneGeometry, MeshBasicMaterial, Vector3, Raycaster, AmbientLight, Group } from "three";
 
+const acceleration  = new Vector3;
 const canDragMesh   = {};
 const raycaster     = new Raycaster;
 const movement      = new Vector3;
+const gravity       = { x: 0, y: 0, z: 0 };
 const canvas        = document.createElement('canvas');
 const config        = {
     bgColor : 0x152610
 };
+
+const impulseMultiplier = {
+    name    : 'ImpulseMultiplier',
+    value   : 800
+};
+const gravityForce      = {
+    name    : 'GravityForce',
+    value   : 30
+};
+const shakeThreshold    = {
+    name    : 'ShakeThreshold',
+    value   : 20
+};
+const shakeEvent        = new Event('shake');
+
+let width   = 0;
+let height  = 0;
+let shake   = 0;
+
+function resetShake() {
+
+    shake = 0;
+
+}
 
 canvas.classList.add(css`
     width: 100vw;
@@ -33,29 +59,42 @@ canvas.classList.add(css`
 
 document.body.appendChild(canvas);
 
+window.addEventListener('devicemotion', e => {
+
+    if( ( Math.abs(e.acceleration.x - acceleration.x) + Math.abs(e.acceleration.y - acceleration.y) )/2 > shakeThreshold.value ) {
+
+        shake++ || setTimeout(resetShake, 3000);
+
+        if(shake >= 3) {
+
+            resetShake();
+
+            canvas.dispatchEvent(shakeEvent);
+
+        }
+
+    }
+
+    acceleration.copy(e.acceleration);
+    
+});
+
+window.addEventListener( 'deviceorientation', ({ gamma, beta }) => Object.assign(gravity, {
+    y : Math.max(Math.min(beta, 90), -90)/-90 * gravityForce.value,
+    x : gamma/90 * gravityForce.value
+}) );
+
 initThree( new ThreeGLTF(canvas, config), require('./monk.glb') ).then(async ({ gui, three, cancel, enableDevControls }) => {
 
     const letters           = new Group;
     const RAPIER            = await import('@dimforge/rapier3d');
     const size              = three.sceneSize;
-    const gravity           = { x: 0, y: 0, z: 0 };
     const world             = new RAPIER.World(gravity);
     const material          = new MeshBasicMaterial({
         wireframe   : true,
         visible     : THREE_DEBUG,
         name        : 'BoundsWireframe'
     });
-    const impulseMultiplier = {
-        name    : 'ImpulseMultiplier',
-        value   : 800
-    };
-    const gravityForce      = {
-        name    : 'GravityForce',
-        value   : 30
-    };
-
-    let width   = 0;
-    let height  = 0;
 
     letters.name = 'Letters';
 
@@ -161,11 +200,7 @@ initThree( new ThreeGLTF(canvas, config), require('./monk.glb') ).then(async ({ 
 
         letters.add(letter);
 
-        media.on('0', () => {
-
-            body.setTranslation(reset);
-
-        });
+        media.on( '0', () => void body.setTranslation(reset) );
 
         sync.update( () => {
 
@@ -194,9 +229,9 @@ initThree( new ThreeGLTF(canvas, config), require('./monk.glb') ).then(async ({ 
     } )
 
     canvas.classList.add('visible');
-
+    
     canvas.addEventListener( 'click', () => void DeviceOrientationEvent.requestPermission?.().then(console.log).catch(console.error) );
-    canvas.addEventListener( 'pointermove', e => void movement.set(width * e.movementX/canvas.clientWidth, height * -e.movementY/canvas.clientHeight) );        
+    canvas.addEventListener( 'pointermove', e => void movement.set(width * e.movementX/canvas.clientWidth, height * -e.movementY/canvas.clientHeight) );
     canvas.addEventListener( 'pointerdown', e => {
 
         const pointer = new Vector3;
@@ -216,23 +251,20 @@ initThree( new ThreeGLTF(canvas, config), require('./monk.glb') ).then(async ({ 
         } );
 
     } );
+    canvas.addEventListener('shake', () => {
 
-    window.addEventListener( 'deviceorientation', ({ gamma, beta }) => {
+        console.log('shake!');
 
-        Object.assign(gravity, {
-            y : Math.max(Math.min(beta, 90), -90)/-90 * gravityForce.value,
-            x : gamma/90 * gravityForce.value
-        });
-
-    } );
+    });
 
     if(THREE_DEBUG) {
 
         new RapierGUI(three, world).addTo(gui);
 
         new GUI(three, material, ['visible']).addTo(gui);
-        new GUI(three, impulseMultiplier, ['value']).addTo(gui);
-        new GUI(three, gravityForce, ['value']).addTo(gui);
+        new GUI(three, impulseMultiplier).addTo(gui);
+        new GUI(three, gravityForce).addTo(gui);
+        new GUI(three, shakeThreshold).addTo(gui);
 
         enableDevControls?.();
 
