@@ -61,7 +61,7 @@ class GUI extends EventDispatcher {
 
         }
 
-        if(typeof this.object[prop] === 'function') {
+        if(this.controls[prop] === GUI.button) {
 
             this.object[prop].call(this, value);
 

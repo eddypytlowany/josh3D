@@ -18,6 +18,7 @@ import { Mesh, PlaneGeometry, MeshBasicMaterial, Vector3, Raycaster, AmbientLigh
 
 const acceleration  = new Vector3;
 const canDragMesh   = {};
+const shakeEvent    = new Event('shake');
 const raycaster     = new Raycaster;
 const movement      = new Vector3;
 const gravity       = { x: 0, y: 0, z: 0 };
@@ -36,19 +37,24 @@ const gravityForce      = {
 };
 const shakeThreshold    = {
     name    : 'ShakeThreshold',
-    value   : 20
+    value   : 20,
+    trigger : () => {
+
+        canvas.dispatchEvent(shakeEvent);
+
+        shakeThreshold.reset();
+
+    },
+    reset   : () => {
+
+        shake = 0;
+
+    }
 };
-const shakeEvent        = new Event('shake');
 
 let width   = 0;
 let height  = 0;
 let shake   = 0;
-
-function resetShake() {
-
-    shake = 0;
-
-}
 
 canvas.classList.add(css`
     width: 100vw;
@@ -59,17 +65,20 @@ canvas.classList.add(css`
 
 document.body.appendChild(canvas);
 
+window.addEventListener( 'deviceorientation', ({ gamma, beta }) => Object.assign(gravity, {
+    y : Math.max(Math.min(beta, 90), -90)/-90 * gravityForce.value,
+    x : gamma/90 * gravityForce.value
+}) );
+
 window.addEventListener('devicemotion', e => {
 
     if( ( Math.abs(e.acceleration.x - acceleration.x) + Math.abs(e.acceleration.y - acceleration.y) )/2 > shakeThreshold.value ) {
 
-        shake++ || setTimeout(resetShake, 3000);
+        shake++ || setTimeout(shakeThreshold.reset, 3000);
 
         if(shake >= 3) {
 
-            resetShake();
-
-            canvas.dispatchEvent(shakeEvent);
+            shakeThreshold.trigger();
 
         }
 
@@ -78,11 +87,6 @@ window.addEventListener('devicemotion', e => {
     acceleration.copy(e.acceleration);
     
 });
-
-window.addEventListener( 'deviceorientation', ({ gamma, beta }) => Object.assign(gravity, {
-    y : Math.max(Math.min(beta, 90), -90)/-90 * gravityForce.value,
-    x : gamma/90 * gravityForce.value
-}) );
 
 initThree( new ThreeGLTF(canvas, config), require('./monk.glb') ).then(async ({ gui, three, cancel, enableDevControls }) => {
 
@@ -264,7 +268,7 @@ initThree( new ThreeGLTF(canvas, config), require('./monk.glb') ).then(async ({ 
         new GUI(three, material, ['visible']).addTo(gui);
         new GUI(three, impulseMultiplier).addTo(gui);
         new GUI(three, gravityForce).addTo(gui);
-        new GUI(three, shakeThreshold).addTo(gui);
+        new GUI(three, shakeThreshold, ['value', 'trigger']).addTo(gui);
 
         enableDevControls?.();
 
