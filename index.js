@@ -1,5 +1,4 @@
 /*
-TODO Detect when device is shaken and trigger a callback https://developer.mozilla.org/en-US/docs/Web/API/Sensor_APIs#interfaces
 TODO Apply random impulses to letters on shake event
 TODO Toggle material colours on letters on shake event
 TODO Determin direction of gravity based on orientation of viewport
@@ -38,14 +37,14 @@ const gravityForce      = {
 const shakeThreshold    = {
     name    : 'ShakeThreshold',
     value   : 20,
-    trigger : () => {
+    trigger() {
 
         canvas.dispatchEvent(shakeEvent);
 
         shakeThreshold.reset();
 
     },
-    reset   : () => {
+    reset() {
 
         shake = 0;
 
@@ -76,7 +75,7 @@ window.addEventListener('devicemotion', e => {
 
         shake++ || setTimeout(shakeThreshold.reset, 3000);
 
-        if(shake >= 3) {
+        if(shake >= 2) {
 
             shakeThreshold.trigger();
 
@@ -215,6 +214,18 @@ initThree( new ThreeGLTF(canvas, config), require('./monk.glb') ).then(async ({ 
 
         }, true );
 
+        canvas.addEventListener('shake', () => {
+
+            const shake = new Vector3;
+
+            letter.getWorldPosition(shake);
+
+            shake.multiplyScalar(-1 * impulseMultiplier.value/2);
+
+            body.applyImpulse(shake, true);
+
+        });
+
     });
 
     three.scene.add(letters);
@@ -255,11 +266,6 @@ initThree( new ThreeGLTF(canvas, config), require('./monk.glb') ).then(async ({ 
         } );
 
     } );
-    canvas.addEventListener('shake', () => {
-
-        console.log('shake!');
-
-    });
 
     if(THREE_DEBUG) {
 
