@@ -1,8 +1,6 @@
 /*
-TODO Apply random impulses to letters on shake event
-TODO Toggle material colours on letters on shake event
-TODO Determin direction of gravity based on orientation of viewport
 TODO What are normals in 3D?
+TODO Comment code!
 */
 
 import media from 'phat-kitty-js/media-query';
@@ -22,9 +20,7 @@ const raycaster     = new Raycaster;
 const movement      = new Vector3;
 const gravity       = { x: 0, y: 0, z: 0 };
 const canvas        = document.createElement('canvas');
-const config        = {
-    bgColor : 0x152610
-};
+const bgColor       = 0x152610;
 
 const impulseMultiplier = {
     name    : 'ImpulseMultiplier',
@@ -33,6 +29,10 @@ const impulseMultiplier = {
 const gravityForce      = {
     name    : 'GravityForce',
     value   : 30
+};
+const shakeTarget       = {
+    name    : 'ShakeTarget',
+    value   : 2
 };
 const shakeThreshold    = {
     name    : 'ShakeThreshold',
@@ -54,6 +54,23 @@ const shakeThreshold    = {
 let width   = 0;
 let height  = 0;
 let shake   = 0;
+let axis    = [];
+
+function createAxis(gamma, beta) {
+
+    axis = Object.entries({ gamma, beta }).sort( (a, b) => Math.abs(a[1]) - Math.abs(b[1]) ).map( ([angle, value]) => {
+
+        if(value) {
+
+            value /= Math.abs(value);
+
+        }
+
+        return [angle, value];
+
+    });
+
+}
 
 canvas.classList.add(css`
     width: 100vw;
@@ -64,18 +81,30 @@ canvas.classList.add(css`
 
 document.body.appendChild(canvas);
 
-window.addEventListener( 'deviceorientation', ({ gamma, beta }) => Object.assign(gravity, {
-    y : Math.max(Math.min(beta, 90), -90)/-90 * gravityForce.value,
-    x : gamma/90 * gravityForce.value
-}) );
+window.addEventListener( 'deviceorientation', e => {
+
+    axis.length || createAxis(e.gamma, e.beta);
+
+    Object.assign(gravity, {
+        x : ( e[ axis[0][0] ] )/(axis[0][1] * -90) * gravityForce.value,
+        y : Math.max(Math.min( e[ axis[1][0] ], 90 ), -90)/(axis[1][1] * -90) * gravityForce.value
+    });
+
+} );
+
+window.addEventListener('resize', () => {
+
+    axis.length = 0;
+
+});
 
 window.addEventListener('devicemotion', e => {
 
-    if( ( Math.abs(e.acceleration.x - acceleration.x) + Math.abs(e.acceleration.y - acceleration.y) )/2 > shakeThreshold.value ) {
+    if( Math.max( Math.abs(e.acceleration.x - acceleration.x) + Math.abs(e.acceleration.y - acceleration.y) ) > shakeThreshold.value ) {
 
         shake++ || setTimeout(shakeThreshold.reset, 3000);
 
-        if(shake >= 2) {
+        if(shake >= shakeTarget.value) {
 
             shakeThreshold.trigger();
 
@@ -87,7 +116,7 @@ window.addEventListener('devicemotion', e => {
     
 });
 
-initThree( new ThreeGLTF(canvas, config), require('./monk.glb') ).then(async ({ gui, three, cancel, enableDevControls }) => {
+initThree( new ThreeGLTF(canvas, { bgColor }), require('./monk.glb') ).then(async ({ gui, three, cancel, enableDevControls }) => {
 
     const letters           = new Group;
     const RAPIER            = await import('@dimforge/rapier3d');
@@ -274,6 +303,7 @@ initThree( new ThreeGLTF(canvas, config), require('./monk.glb') ).then(async ({ 
         new GUI(three, material, ['visible']).addTo(gui);
         new GUI(three, impulseMultiplier).addTo(gui);
         new GUI(three, gravityForce).addTo(gui);
+        new GUI(three, shakeTarget).addTo(gui);
         new GUI(three, shakeThreshold, ['value', 'trigger']).addTo(gui);
 
         enableDevControls?.();
