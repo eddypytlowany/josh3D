@@ -1,6 +1,5 @@
 /*
 TODO What are normals in 3D?
-TODO Comment code!
 */
 
 import media from 'phat-kitty-js/media-query'; // This is a library provided by my Webpack config which allows for easier management of events triggered when the viewport size changes.
