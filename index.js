@@ -7,6 +7,7 @@ import RapierGUI from './js/three/gui/RapierGUI';
 import ThreeGLTF from 'js/three/renderer/threeGLTF';
 import sync from 'framesync';
 import GUI from './js/three/core/GUI';
+import DeviceGravity from './js/Gravity';
 import { getObjectBoundingBox } from './js/three/utils';
 import { initThree } from "js/three";
 import { css } from '@emotion/css';
@@ -17,7 +18,7 @@ const canDragMesh   = {}; // Store objects that are currently draggable in the 3
 const shakeEvent    = new Event('shake'); // Event to trigger on canvas element on device shake.
 const raycaster     = new Raycaster;
 const movement      = new Vector3; // The coordinates of the pointer relative to the position of the last pointermove event in normalised 3D space.
-const gravity       = { x: 0, y: -30, z: 0 };
+const gravity       = new DeviceGravity;
 const canvas        = document.createElement('canvas');
 const bgColor       = 0x152610;
 
@@ -33,11 +34,11 @@ const gravityForce      = {
 // Number of shakes to register before triggering a 'shake' event.
 const shakeTarget       = {
     name    : 'ShakeTarget',
-    value   : 2
+    value   : 3
 };
 const shakeThreshold    = {
     name    : 'ShakeThreshold',
-    value   : 20,
+    value   : 30,
     trigger() {
 
         canvas.dispatchEvent(shakeEvent);
@@ -55,30 +56,23 @@ const shakeThreshold    = {
 let width   = 0;
 let height  = 0;
 let shake   = 0;
-let axis    = [];
 
-/**
- * Calculate current axis by determining whichever absolute value is greater and assume that is the current 'down' direction of the device.
- * Note: Rotation values are always relative to the devices portrait orientation.
- * 
- * @param {Number} gamma Rotation around the Y axis.
- * @param {Number} beta Rotation around the X axis.
- */
-function createAxis(gamma, beta) {
+window.addEventListener( 'deviceorientation', e => {
 
-    axis = Object.entries({ gamma, beta }).sort( (a, b) => Math.abs(a[1]) - Math.abs(b[1]) ).map( ([angle, value]) => {
+    if(e.beta + e.alpha + e.gamma) {
 
-        if(value) {
+        gravity.parseDeviceMotionEvent(e);
 
-            value /= Math.abs(value);
+    }
 
-        }
+} );
 
-        return [angle, value];
+// Using the resize event to assume there has been a change in the device's orientation and reset the world axis.
+window.addEventListener('resize', () => {
 
-    });
+   
 
-}
+});
 
 canvas.classList.add(css`
     width: 100vw;
@@ -89,24 +83,7 @@ canvas.classList.add(css`
 
 document.body.appendChild(canvas);
 
-window.addEventListener( 'deviceorientation', e => {
 
-    // If axis is not yet set then create it.
-    axis.length || createAxis(e.gamma, e.beta);
-
-    Object.assign(gravity, {
-        x : ( e[ axis[0][0] ] )/(axis[0][1] * -90) * gravityForce.value,
-        y : Math.max(Math.min( e[ axis[1][0] ], 90 ), -90)/(axis[1][1] * -90) * gravityForce.value
-    });
-
-} );
-
-// Using the resize event to assume there has been a change in the device's orientation and reset the world axis.
-window.addEventListener('resize', () => {
-
-    axis.length = 0;
-
-});
 
 window.addEventListener('devicemotion', e => {
 
@@ -357,7 +334,7 @@ initThree( new ThreeGLTF(canvas, { bgColor }), require('./monk.glb') ).then(asyn
 
         canvas.setPointerCapture(pointerId);
 
-        /**
+        /**  
          * Calculate pointer position in normalized device coordinates (-1 to +1) for both components
          * @see https://threejs.org/docs/index.html#api/en/core/Raycaster
          */
