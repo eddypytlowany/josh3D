@@ -3,13 +3,19 @@ const xR = {
     360 : 'sin',
     180 : 'sin',
     90  : 'cos'
-}
+};
 
 const yR = {
     360 : 'cos',
     180 : 'cos',
     90  : 'sin'
-}
+};
+
+const xDir = {
+    360 : [-1, 1],
+    180 : [1, -1],
+    90  : [1, -1]
+};
 
 function deg2rad(value) {
 
@@ -19,20 +25,20 @@ function deg2rad(value) {
 
 class Gravity {
 
-    #yR     = 1;
-    #up     = 1;
-    #zUp    = {};
+    #xR     = [0, 0];
+    #up     = -1;
+    #zUp    = [];
     #axis   = [];
     #roll   = 0;
-    #dirX   = 1;
     #tilt   = 1;
     #pitch  = 90;
+    #setUpZ = 0;
 
     force   = 30;
 
     get x() {
 
-        return this.#dirX * this.#roll/90 * this.force;
+        return (xDir[ this.#zUp[this.#up] ]?.[this.#up] ?? 1) * this.#roll * this.force;
 
     }
 
@@ -48,26 +54,32 @@ class Gravity {
 
     }
 
-    get axisY() {
-
-        return this.#axis[1];
-
-    }
-
     /**
      * 
      * @param {DeviceMotionEvent} e DeviceMotionEvent
      */
     parseDeviceMotionEvent(e) {
 
-        this.#up    = Math.min(Math.floor(Math.abs(e.beta)/90), 1) || -1;
-        this.#roll  = this.#getX(e);
-        this.#tilt  = screen.orientation.angle % 180/90 * this.#up * e.gamma/Math.abs(e.gamma) * (Math.round(90/screen.orientation.angle) || -1) || e.beta/Math.abs(e.beta);
-        this.#pitch = Math.min( Math.abs( this.#getY(e) ), 180 - this.#getY(e) );
-        
+        const angle = screen.orientation.angle || 360;
+
+        this.#up            = Math.min(Math.floor(Math.abs(e.beta)/90), 1);
+        this.#roll          = this.#getX(e);
+
+        /**
+         * Normalise whether the screen is 'facing' the user or tilted the opposite direction.
+         * Landscape rotation can always be reliably determined 
+         */
+        this.#tilt          = angle % 180/90 * (this.#up || -1) * Math.sign(e.gamma) * (Math.round(90/angle) || -1) || Math.sign(e.beta);
+        this.#pitch         = Math.min( Math.abs( this.#getY(e) ), 180 - this.#getY(e) );
+
+        this.#xR[this.#up]  = this.#getZ(e, xR);
+
+        // console.clear();
+        // console.log(this.#zUp[this.#up], this.#getZ(e, xR), e.alpha);
+
     }
 
-    clear() {
+    reset() {
 
         this.#axis.length = 0;
 
@@ -86,13 +98,54 @@ class Gravity {
 
     }
 
+    // #setUpZ(alpha) {
+
+    //     this.#zUp[this.#up] = alpha - (90 * this.#xR[(this.#up + 1) % 2]);
+
+    // }
+
     #getZ(e, axis) {
 
-        this.#zUp[this.#up] ??= Math.round( (this.#yR * e.alpha)/90 ) * 90 || 360;
+        let z = 1;
 
-        this.#dirX = this.#up > 0 && this.#zUp[this.#up] === 360 ? -1 : 1;
+        if(!this.#zUp[this.#up]) {
 
-        return Math.abs( Math[ axis[ this.#zUp[this.#up] ] ]( deg2rad(e.alpha) ) );
+            this.#setUpZ = 1;
+
+        }
+
+        switch(this.#setUpZ) {
+
+            case 1 :
+
+                this.#setUpZ = 0;
+
+                this.#zUp[this.#up] = this.#zUp[(this.#up + 1) % 2] || 360;
+
+                setTimeout( () => {
+
+                    this.#setUpZ = 2;
+        
+                } );
+
+                break;
+
+            case 2 :
+
+                this.#setUpZ = 0;
+
+                this.#zUp[this.#up]   = Math.max(Math.round( ( e.alpha - (-90 * this.#xR[(this.#up + 1) % 2]) )/90 ), 0) * 90;
+                this.#zUp[this.#up] ||= 360;
+
+                break;
+
+            default :
+
+                z = Math[ axis[ this.#zUp[this.#up] ] ]( deg2rad(e.alpha) );
+
+        }
+
+        return z;
 
     }
 
@@ -100,9 +153,7 @@ class Gravity {
 
         this.#axis.length || this.createAxis(e.beta, e.gamma, e.alpha);
 
-        this.#yR = this.#getZ(e, yR);
-
-        return this.#yR * e[ this.#axis[1] ];
+        return Math.abs( this.#getZ(e, yR) ) * e[ this.#axis[1] ];
 
     }
 
@@ -110,7 +161,7 @@ class Gravity {
 
         this.#axis.length || this.createAxis(e.beta, e.gamma, e.alpha);
         
-        return this.#getZ(e, xR) * e[ this.#axis[0] ];
+        return this.#getZ(e, xR); // * Math.abs(e[ this.#axis[0] ])/90;
 
     }
 
